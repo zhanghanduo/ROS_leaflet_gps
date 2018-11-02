@@ -22,7 +22,9 @@
 // between each refreshing.
 
 // The name of the GPS publisher name by default
-var CONFIG_default_gps_topic_name = '/kitti/oxts/gps/fix';
+var CONFIG_default_gps_topic_name = '/gps_bestpos'; // '/kitti/oxts/gps/fix';
+
+var CONFIG_default_pose_topic_name = '/sslam/robot/pose';
 
 // The number of cycles between every marker position reload
 var CONFIG_cycles_number = 10;
@@ -43,8 +45,14 @@ var CONFIG_ROS_server_URI = 'localhost';
 //===> Global variables
 var map;
 var selectionMode;
+var carIcon = L.icon({
+    iconUrl: 'assets/car1.png',
+    iconSize: [22, 22],
+    iconAnchor: [0, 0],
+    popupAnchor: [-3, -30],
+});
 var markerPosition = L.marker([0,0]);
-var markerFinish = L.marker([0,0]);
+var markerPosition2 = L.marker([0,0], {icon: carIcon});
 // ============================= FUNCTIONS
 // ===> mapInit() : init the map
 function mapInit() {
@@ -79,8 +87,6 @@ function mapInit() {
 		window.location.reload();
 	}).addTo(map);
 
-	markerFinish.addTo(map).setOpacity(0)
-
 	return map;
 }
 
@@ -92,8 +98,10 @@ var endPoint;
 var zoomLevel = 17;
 var routeControl;
 var loadedMap = false;
+var loadedMap2 = false;
 var i = 0;
 var listenerGPS;
+var listenerPose;
 
 //===> ROS connexion
 var ros = new ROSLIB.Ros({
@@ -163,11 +171,18 @@ mapInit();
 //===> Set the GPS listener
 //  => Create param with initial value
 var paramTopicNameValue = CONFIG_default_gps_topic_name;
+var paramTopicNamePose = CONFIG_default_pose_topic_name;
 var paramNbCyclesValue = CONFIG_cycles_number;
 
 //  => Init the ROS param
 var paramTopicName = new ROSLIB.Param({ros : ros, name : '/panel/gps_topic'});
+var paramTopicPose_Name = new ROSLIB.Param({ros : ros, name : '/panel/pose_topic'});
 var paramNbCycles = new ROSLIB.Param({ros : ros, name : '/panel/nb_cycles'});
+var path_ = [];
+var firstloc_x;
+var firstloc_y;
+var polyline_;
+var polyline2_;
 
 //  => Set the value
 paramTopicName.get(function(value) { 
@@ -177,7 +192,7 @@ paramTopicName.get(function(value) {
 	else
 		paramTopicName.set(paramTopicNameValue);
 	
-	paramNbCycles.get(function(value) { 
+	paramNbCycles.get(function(value) {
 		// If the param isn't created yet, we keep the default value
 		if(value != null) 
 			paramNbCyclesValue = value; 
@@ -185,18 +200,17 @@ paramTopicName.get(function(value) {
 		paramNbCycles.set(paramNbCyclesValue);
 
 
-		// Set the listener informations
+		// Set the listener information
 		listenerGPS = new ROSLIB.Topic({
 			ros : ros,
 			name : paramTopicNameValue,
-			messageType : 'sensor_msgs/NavSatFix'
+			// messageType : 'sensor_msgs/NavSatFix'
+			messageType : 'rds_msgs/msg_novatel_bestpos'
 		});
 
 		// Set the callback function when a message from /gps is received
 
 		var i = 0;
-		var polyline_;
-		var path_ = [];
 
 		listenerGPS.subscribe(function(message) {
 			// We have to wait for the GPS before showing the map, because we don't know where we are
@@ -210,6 +224,10 @@ paramTopicName.get(function(value) {
 				map.setView([lat, lon], zoomLevel);
 				// Add the marker on the map
 				markerPosition.addTo(map);
+				markerPosition2.addTo(map);
+
+				firstloc_x = message.northing;
+				firstloc_y = message.easting;
 
 				path_.push([lat, lon]);
 				polyline_ = L.polyline(path_, {color: 'red'}, {weight: 1}).addTo(map);
@@ -227,6 +245,7 @@ paramTopicName.get(function(value) {
 				markerPosition.setLatLng([lat, lon]);
 
 				polyline_.addLatLng([lat, lon]);
+
 				// console.log("path: ", JSON.stringify(path_));
 
 				// If the marker has went out of the map, we move the map
@@ -234,12 +253,7 @@ paramTopicName.get(function(value) {
 				if(!bounds.contains([lat, lon]))
 					map.setView([lat, lon], zoomLevel);
 				
-				// polybounds = polyline_.getBounds();
-				// if(!polybounds.contains([lat, lon]))
-				// 	map.fitBounds(polybounds);	
-				// map.fitBounds(polyline_.getBounds());
-
-				console.log("Update position");
+				// console.log("Update position");
 			}
 
 			i++;
@@ -248,3 +262,59 @@ paramTopicName.get(function(value) {
 	});
 });
 
+paramTopicPose_Name.get(function(value) { 
+	// If the param isn't created yet, we keep the default value
+	if(value != null)
+		paramTopicNamePose = value; 
+	else
+		paramTopicPose_Name.set(paramTopicNamePose);
+
+	paramNbCycles.get(function(value) {
+		// If the param isn't created yet, we keep the default value
+		if(value != null) 
+			paramNbCyclesValue = value; 
+		else
+		paramNbCycles.set(paramNbCyclesValue);
+
+		listenerPose = new ROSLIB.Topic({
+			ros : ros,
+			name : paramTopicNamePose,
+			messageType : 'geometry_msgs/PoseWithCovarianceStamped'
+		});
+
+		var i2 = 0;
+		var utm;
+
+		listenerPose.subscribe(function(message2) {
+			var x_ = message2.pose.pose.position.x + firstloc_x;
+			var y_ = message2.pose.pose.position.z + firstloc_y;
+			
+			if(loadedMap2 == false) 
+			{
+				polyline2_ = L.polyline(path_, {color: 'blue'}).addTo(map);
+
+				loadedMap2 = true;
+			}
+
+			if(i2 % paramNbCyclesValue == 0)
+			{
+
+				utm = L.utm(x_, y_, 48, 'N', false);
+				var ll = utm.latLng();
+				if (ll){
+					markerPosition2.setLatLng(ll);
+					polyline2_.addLatLng(ll);
+				}
+
+				console.log("Update position");
+
+			}
+
+			i2 ++;
+
+		});
+
+
+
+	});
+});
