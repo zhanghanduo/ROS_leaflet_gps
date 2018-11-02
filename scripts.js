@@ -286,6 +286,7 @@ paramTopicName.get(function(value) {
 
 		var i = 0;
 		var polyline_;
+		var path_;
 
 		listenerGPS.subscribe(function(message) {
 			// We have to wait for the GPS before showing the map, because we don't know where we are
@@ -298,8 +299,9 @@ paramTopicName.get(function(value) {
 				// Center the map on the car's position
 				map.setView([lat, lon], zoomLevel);
 				// Add the marker on the map
+				path_.push([lat, lon]);
 				markerPosition.addTo(map);
-				polyline_ = L.polyline(path_, {color: 'red'}).addTo(map);
+				polyline_ = L.polyline(path_, {color: 'red'}, {weight: 1}).addTo(map);
 
 				// Set the flag to true, so we don't have to load the map again
 				loadedMap = true;

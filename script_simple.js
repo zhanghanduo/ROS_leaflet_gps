@@ -70,17 +70,17 @@ function mapInit() {
 	osm.addTo(map);
 
 
-	// map.addControl(new L.Control.LinearMeasurement({
-	// 	unitSystem: 'metric',
-	// 	color: '#FF0080'
-	// }));
+	map.addControl(new L.Control.LinearMeasurement({
+		unitSystem: 'metric',
+		color: '#FF0080'
+	}));
 
 	L.easyButton('glyphicon glyphicon-refresh', function(btn, map){
 		window.location.reload();
 	}).addTo(map);
 
 	markerFinish.addTo(map).setOpacity(0)
-	
+
 	return map;
 }
 
@@ -196,6 +196,7 @@ paramTopicName.get(function(value) {
 
 		var i = 0;
 		var polyline_;
+		var path_ = [];
 
 		listenerGPS.subscribe(function(message) {
 			// We have to wait for the GPS before showing the map, because we don't know where we are
@@ -210,6 +211,7 @@ paramTopicName.get(function(value) {
 				// Add the marker on the map
 				markerPosition.addTo(map);
 
+				path_.push([lat, lon]);
 				polyline_ = L.polyline(path_, {color: 'red'}, {weight: 1}).addTo(map);
 				
 				// Set the flag to true, so we don't have to load the map again
