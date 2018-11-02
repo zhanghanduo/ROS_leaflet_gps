@@ -1,15 +1,10 @@
 // ============================= INTRODUCTION
 
-// Name : Autonomous-Car-GPS-Guiding
-// Author : Sylvain ARNOUTS
-// Mail : sylvain.ar@hotmail.fr
-// Date : From May to August 2016
-// Link : https://github.com/sylvainar/Autonomous-Car-GPS-Guiding
-
-// This code has been written in order to create a nice interface to interact
-// with the autonomous electric car of the UPV ai2 laboratory. It displays a map,
-// set a marker on the car's position using gps publishing topic, and allows a user 
-// to start the routing by tapping the destination on the touchscreen.
+// Name : Leaflet mapping for ROS
+// Author : Zhang Handuo
+// Mail : hzhang032@e.ntu.edu.sg
+// Date : November 2018
+// Link : https://github.com/zhanghanduo/ROS_leaflet_gps
 
 // License : Apache 2.0
 
@@ -22,10 +17,12 @@
 // between each refreshing.
 
 // The name of the GPS publisher name by default
-var CONFIG_default_gps_topic_name = '/kitti/oxts/gps/fix';
+var CONFIG_default_gps_topic_name = '/gps_pose'; // '/kitti/oxts/gps/fix';
+
+var CONFIG_default_pose_topic_name = '/sslam/robot/pose';
 
 // The number of cycles between every marker position reload
-var CONFIG_cycles_number = 20;
+var CONFIG_cycles_number = 10;
 
 // We can download the map online on OSM server, but
 // it won't work if the car isn't connected to the internet.
@@ -43,9 +40,45 @@ var CONFIG_ROS_server_URI = 'localhost';
 //===> Global variables
 var map;
 var selectionMode;
+var carIcon = L.icon({
+    iconUrl: 'assets/car1.png',
+    iconSize: [22, 22],
+    iconAnchor: [10, 20],
+    popupAnchor: [0, 0],
+});
 var markerPosition = L.marker([0,0]);
-var markerFinish = L.marker([0,0]);
+var markerPosition2 = L.marker([0,0], {icon: carIcon});
 // ============================= FUNCTIONS
+
+var rotateVector = function(vec, ang)
+{
+    // ang = -ang * (Math.PI/180);
+    var cos = Math.cos(ang);
+    var sin = Math.sin(ang);
+    return new Array(Math.round(10000*(vec[0] * cos - vec[1] * sin))/10000, Math.round(10000*(vec[0] * sin + vec[1] * cos))/10000);
+};
+
+// // Rotate an object around an axis in object space
+// function rotateAroundObjectAxis( object, axis, radians ) {
+
+//     var rotationMatrix = new THREE.Matrix4();
+
+//     rotationMatrix.makeRotationAxis( axis.normalize(), radians );
+//     object.matrix.multiplySelf( rotationMatrix );                       // post-multiply
+//     object.rotation.setRotationFromMatrix( object.matrix );
+// }
+
+// // Rotate an object around an axis in world space (the axis passes through the object's position)       
+// function rotateAroundWorldAxis( object, axis, radians ) {
+
+//     var rotationMatrix = new THREE.Matrix4();
+
+//     rotationMatrix.makeRotationAxis( axis.normalize(), radians );
+//     rotationMatrix.multiplySelf( object.matrix );                       // pre-multiply
+//     object.matrix = rotationMatrix;
+//     object.rotation.setRotationFromMatrix( object.matrix );
+// }
+
 // ===> mapInit() : init the map
 function mapInit() {
 	
@@ -69,46 +102,27 @@ function mapInit() {
 	}); 
 	osm.addTo(map);
 
-	L.easyButton('glyphicon-road', function(btn, map){
-		swal({
-			title: "Where do you want to go ?",
-			text: "After closing this popup, click on the place you want to go.",
-			type: "info",
-			confirmButtonText: "Got it!",
-			showCancelButton: true,
-			closeOnConfirm: true,
-			showLoaderOnConfirm: true,
-			allowOutsideClick: false,
-		},
-		function(isConfirm){
-			if (isConfirm) selectionMode = true;
-			else selectionMode = false;
-		});
-	}).addTo(map);
 
-	L.easyButton('glyphicon glyphicon-cog', function(btn, map){
-		// TODO : add the possibility to modify params on the run
-	}).addTo(map);
+	map.addControl(new L.Control.LinearMeasurement({
+		unitSystem: 'metric',
+		color: '#FF0080'
+	}));
 
 	L.easyButton('glyphicon glyphicon-refresh', function(btn, map){
 		window.location.reload();
 	}).addTo(map);
-
-	markerFinish.addTo(map).setOpacity(0)
 
 	return map;
 }
 
 // ============================= SCRIPT
 var bounds;
-var currentPosition = {latitude : 0, longitude : 0};
-var startPoint;
-var endPoint;
 var zoomLevel = 17;
-var routeControl;
 var loadedMap = false;
+var loadedMap2 = false;
 var i = 0;
 var listenerGPS;
+var listenerPose;
 
 //===> ROS connexion
 var ros = new ROSLIB.Ros({
@@ -172,92 +186,24 @@ ros.on('close', function() {
 	});
 });
 
-//===> Init the routing parameters
-var paramStartLat = new ROSLIB.Param({
-	ros : ros,
-	name : '/routing_machine/start/latitude'
-});
-var paramStartLon = new ROSLIB.Param({
-	ros : ros,
-	name : '/routing_machine/start/longitude'
-});
-var paramEndLat = new ROSLIB.Param({
-	ros : ros,
-	name : '/routing_machine/destination/latitude'
-});
-var paramEndLon = new ROSLIB.Param({
-	ros : ros,
-	name : '/routing_machine/destination/longitude'
-});
-var paramEndGoTo = new ROSLIB.Param({
-	ros : ros,
-	name : '/routing_machine/destination/goTo'
-});
-
-paramStartLat.set(0);
-paramStartLon.set(0);	
-paramEndLat.set(0);
-paramEndLon.set(0);
-paramEndGoTo.set(false);
-
-//===> Init the map and the click listener
-
+//===> Init the map
 mapInit();
 
-map.on('click', function(e) {
-	//When a click on the map is detected
-	if(selectionMode == true)
-	{
-		selectionMode = false;
-		//First, get the coordinates of the point clicked
-		var lat = e.latlng.lat;
-		var lon = e.latlng.lng;
-		//Place a marker
-		markerFinish.setLatLng([lat,lon]);
-		markerFinish.setOpacity(1);
-		setTimeout(function() {
-			swal({
-				title: "Is this correct ?",
-				text: "Confirm the position to start the navigation.",
-				type: "info",
-				confirmButtonText: "Yes, let's go !",
-				showCancelButton: true,
-				closeOnConfirm: true,
-				allowOutsideClick: false,
-			},
-			function(isConfirm){
-				if (isConfirm)
-				{
-						//Logging stuff in the console
-						console.log('Routing Start !');
-						console.log('Start set to : '+ currentPosition.latitude + ' ' + currentPosition.longitude);
-						console.log('Destination set to : '+lat + ' ' + lon);
-						//Set all the parameters to the destination
-						paramStartLat.set(currentPosition.latitude);
-						paramStartLon.set(currentPosition.longitude);
-						paramEndLat.set(lat);
-						paramEndLon.set(lon);
-						paramEndGoTo.set(true);// goTo is set to true, that means that their is a new destination to consider.
-					}
-					else
-					{
-						markerFinish.setOpacity(0);
-					}
-				})}, 1000);
-	}
-});
-
 //===> Set the GPS listener
-
 //  => Create param with initial value
 var paramTopicNameValue = CONFIG_default_gps_topic_name;
+var paramTopicNamePose = CONFIG_default_pose_topic_name;
 var paramNbCyclesValue = CONFIG_cycles_number;
 
 //  => Init the ROS param
 var paramTopicName = new ROSLIB.Param({ros : ros, name : '/panel/gps_topic'});
+var paramTopicPose_Name = new ROSLIB.Param({ros : ros, name : '/panel/pose_topic'});
 var paramNbCycles = new ROSLIB.Param({ros : ros, name : '/panel/nb_cycles'});
-
-
+var path_ = [];
+var firstloc;
+var polyline_;
+var polyline2_;
+var rot;
 
 //  => Set the value
 paramTopicName.get(function(value) { 
@@ -267,7 +213,7 @@ paramTopicName.get(function(value) {
 	else
 		paramTopicName.set(paramTopicNameValue);
 	
-	paramNbCycles.get(function(value) { 
+	paramNbCycles.get(function(value) {
 		// If the param isn't created yet, we keep the default value
 		if(value != null) 
 			paramNbCyclesValue = value; 
@@ -275,52 +221,70 @@ paramTopicName.get(function(value) {
 		paramNbCycles.set(paramNbCyclesValue);
 
 
-		// Set the listener informations
+		// Set the listener information
 		listenerGPS = new ROSLIB.Topic({
 			ros : ros,
 			name : paramTopicNameValue,
-			messageType : 'sensor_msgs/NavSatFix'
+			// messageType : 'sensor_msgs/NavSatFix'
+			messageType : 'geometry_msgs/PoseWithCovarianceStamped'
 		});
 
 		// Set the callback function when a message from /gps is received
 
 		var i = 0;
-		var polyline_;
-		var path_;
+		var utm0;
 
 		listenerGPS.subscribe(function(message) {
 			// We have to wait for the GPS before showing the map, because we don't know where we are
-			var lat = message.latitude;
-			var lon = message.longitude;
+			var x_ = message.pose.pose.position.x;
+			var y_ = message.pose.pose.position.y;
+			var quaternion = new THREE.Quaternion(message.pose.pose.orientation.x, 
+													message.pose.pose.orientation.y, 
+													message.pose.pose.orientation.z, 
+													message.pose.pose.orientation.w );
+			var rotation = new THREE.Euler().setFromQuaternion( quaternion, 'XYZ' );
+			rot = Math.PI/2 - rotation.z;
+			// console.log("rotation: ", rot);
 
-			if(loadedMap == false) 
+			if(loadedMap == false)
 			{
 				swal.close();
-				// Center the map on the car's position
-				map.setView([lat, lon], zoomLevel);
+				utm0 = L.utm(x_, y_, 48, 'N', false);
+				var ll0 = utm0.latLng();
+				if (ll0){
+					map.setView(ll0, zoomLevel);
+				}
 				// Add the marker on the map
-				path_.push([lat, lon]);
 				markerPosition.addTo(map);
-				polyline_ = L.polyline(path_, {color: 'red'}, {weight: 1}).addTo(map);
+				markerPosition2.addTo(map);
 
+				firstloc = [x_, y_];
+
+				path_.push(ll0);
+				polyline_ = L.polyline(path_, {color: 'red'}, {weight: 1}).addTo(map);
+				
 				// Set the flag to true, so we don't have to load the map again
 				loadedMap = true;
 			}
 
 			if(i % paramNbCyclesValue == 0)
 			{
-				// Refresh the global variable with the position
-				currentPosition.latitude = lat;
-				currentPosition.longitude = lon;
-				// Refresh the position of the marker on the map
-				markerPosition.setLatLng([lat, lon]);
-				polyline_.addLatLng([lat, lon]);
+
+				utm0 = L.utm(x_, y_, 48, 'N', false);
+				ll0 = utm0.latLng();
+				if (ll0){
+					markerPosition.setLatLng(ll0);
+					polyline_.addLatLng(ll0);
+				}
+
+				// console.log("path: ", JSON.stringify(path_));
+
 				// If the marker has went out of the map, we move the map
 				bounds = map.getBounds();
-				if(!bounds.contains([lat, lon]))
-					map.setView([lat, lon], zoomLevel);
-
-				console.log("Update position");
+				if(!bounds.contains(ll0))
+					map.setView(ll0, zoomLevel);
+				
+				// console.log("Update position");
 			}
 
 			i++;
@@ -329,3 +293,67 @@ paramTopicName.get(function(value) {
 	});
 });
 
+paramTopicPose_Name.get(function(value) { 
+	// If the param isn't created yet, we keep the default value
+	if(value != null)
+		paramTopicNamePose = value; 
+	else
+		paramTopicPose_Name.set(paramTopicNamePose);
+
+	paramNbCycles.get(function(value) {
+		// If the param isn't created yet, we keep the default value
+		if(value != null) 
+			paramNbCyclesValue = value; 
+		else
+		paramNbCycles.set(paramNbCyclesValue);
+
+		listenerPose = new ROSLIB.Topic({
+			ros : ros,
+			name : paramTopicNamePose,
+			messageType : 'geometry_msgs/PoseWithCovarianceStamped'
+		});
+
+		var i2 = 0;
+		var utm;
+
+		listenerPose.subscribe(function(message2) {
+
+
+			var raw_vis = [ message2.pose.pose.position.x, message2.pose.pose.position.z ];
+			var after_rot = rotateVector(raw_vis, - rot);
+			var x2_ = firstloc[0] + after_rot[0];
+			var y2_ = firstloc[1] + after_rot[1];
+
+
+			// var raw_vis = new THREE.Vector3( message2.pose.pose.position.x, message2.pose.pose.position.z, 0);
+			// var axis_ = new THREE.Vector3( 0, 0, 1);
+			// var rotationMatrix = new THREE.Matrix4(); 
+			// raw_vis.applyMatrix4(rotationMatrix.makeRotationAxis( axis_, - rot ));
+			// var x2_ = firstloc[0] + raw_vis.x;
+			// var y2_ = firstloc[1] + raw_vis.y;
+			
+			if(loadedMap2 == false) 
+			{
+				polyline2_ = L.polyline(path_, {color: 'blue'}).addTo(map);
+
+				loadedMap2 = true;
+			}
+
+			if(i2 % paramNbCyclesValue == 0)
+			{
+
+				utm = L.utm(x2_, y2_, 48, 'N', false);
+				var ll = utm.latLng();
+				if (ll){
+					markerPosition2.setLatLng(ll);
+					polyline2_.addLatLng(ll);
+				}
+
+				// console.log("Update position");
+
+			}
+
+			i2 ++;
+		});
+	});
+});
