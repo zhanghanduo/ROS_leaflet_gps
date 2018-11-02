@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="fr">
+	<head>
+		<title>Map panel</title>
+		<meta charset="UTF-8">
+		<!-- Leaflet -->
+		<!-- <link rel="stylesheet" href="lib/linearMeasurement/Leaflet.LinearMeasurement.scss" /> -->
+		<link rel="stylesheet" href="lib/leaflet/leaflet.css" />
+		<script src="lib/leaflet/leaflet.js"></script>
+		<!-- <link rel="stylesheet" href="lib/leaflet_measure/scss/leaflet-measure.scss"> -->
+        <!-- <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.3/leaflet.css" />
+        <script src="https://cdn.onemap.sg/leaflet/onemap-leaflet.js"></script> -->
+
+		<!-- Easy Button -->
+		<link href="lib/easy-button/easy-button.css" rel="stylesheet">
+		<script src="lib/easy-button/easy-button.js"></script>
+
+		<!-- Roscore -->
+		<script type="text/javascript" src="lib/roslib/eventemitter2.min.js"></script>
+		<script type="text/javascript" src="lib/roslib/roslib.min.js"></script>
+	
+		<!-- Bootstrap & JQuery --> 
+		<link href="lib/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+		<script src="lib/jquery/jquery-2.2.0.min.js"></script>
+		
+		<!-- SweetAlert -->
+		<link href="lib/sweetalert/sweetalert.css" rel="stylesheet">
+		<script src="lib/sweetalert/sweetalert.min.js"></script>
+
+	</head>
+
+	<body>
+		<h1>Local Map of GPS</h1>
+		<div id='map' style='height:800px;'></div>
+
+		<!-- <script src="lib/leaflet_measure/src/leaflet-measure.js"></script> -->
+		<!-- Plugins -->
+		<!-- <script src="lib/linearMeasurement/Leaflet.LinearMeasurement.js"></script> -->
+		<!-- <script src="script.js"></script> -->
+	</body>
+	<!-- Scripts --> -->
+	<script src="lib/bootstrap/js/bootstrap.min.js"></script> 
+	<script src="scripts.js"></script>
+	<!-- <script>
+        var center = L.bounds([1.3490, 103.6866], [1.3433, 103.6800]).getCenter();
+		var map = L.map('mapdiv').setView([center.x, center.y], 18);
+
+        // var basemap = L.tileLayer('https://maps-{s}.onemap.sg/v3/Default/{z}/{x}/{y}.png', {
+        //   detectRetina: true,
+        //   maxZoom: 19,
+        //   minZoom: 11
+		// });
+
+		var attrib = 'Map data © OpenStreetMap contributors'; 
+		
+		var basemap = L.tileLayer('https://maps-{s}.onemap.sg/v3/Default/{z}/{x}/{y}.png', {
+		  minZoom: 11, 
+		  maxZoom: 18,
+		  attribution: attrib
+		});
+
+		// map.setMaxBounds([[1.3490, 103.6866], [1.3433, 103.6800]]);
+		map.setMaxBounds([[1.56073, 104.1147], [1.16, 103.502]]);
+
+		basemap.addTo(map);
+		// getLocation();
+		
+		// showPosition(position);
+
+        function getLocation() {
+          if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(showPosition);
+          } 
+        }
+
+        function showPosition(position) {           
+          marker = new L.Marker([position.coords.latitude, position.coords.longitude], {bounceOnAdd: false}).addTo(map);             
+          var popup = L.popup()
+          .setLatLng([position.coords.latitude, position.coords.longitude]) 
+          .setContent('You are here!')
+          .openOn(map);         
+        }
+      </script> -->
+
+</html>
+
