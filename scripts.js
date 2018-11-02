@@ -203,6 +203,7 @@ var path_ = [];
 var firstloc;
 var polyline_;
 var polyline2_;
+var rotation;
 var rot;
 
 //  => Set the value
@@ -242,8 +243,8 @@ paramTopicName.get(function(value) {
 													message.pose.pose.orientation.y, 
 													message.pose.pose.orientation.z, 
 													message.pose.pose.orientation.w );
-			var rotation = new THREE.Euler().setFromQuaternion( quaternion, 'XYZ' );
-			rot = Math.PI/2 - rotation.z;
+			rotation = new THREE.Euler().setFromQuaternion( quaternion, 'XYZ' );
+			rot = rotation.z;
 			// console.log("rotation: ", rot);
 
 			if(loadedMap == false)
@@ -319,18 +320,18 @@ paramTopicPose_Name.get(function(value) {
 		listenerPose.subscribe(function(message2) {
 
 
-			var raw_vis = [ message2.pose.pose.position.x, message2.pose.pose.position.z ];
-			var after_rot = rotateVector(raw_vis, - rot);
-			var x2_ = firstloc[0] + after_rot[0];
-			var y2_ = firstloc[1] + after_rot[1];
+			// var raw_vis = [ message2.pose.pose.position.x, message2.pose.pose.position.z ];
+			// var after_rot = rotateVector(raw_vis, - rot);
+			// var x2_ = firstloc[0] + after_rot[0];
+			// var y2_ = firstloc[1] + after_rot[1];
 
 
-			// var raw_vis = new THREE.Vector3( message2.pose.pose.position.x, message2.pose.pose.position.z, 0);
-			// var axis_ = new THREE.Vector3( 0, 0, 1);
-			// var rotationMatrix = new THREE.Matrix4(); 
-			// raw_vis.applyMatrix4(rotationMatrix.makeRotationAxis( axis_, - rot ));
-			// var x2_ = firstloc[0] + raw_vis.x;
-			// var y2_ = firstloc[1] + raw_vis.y;
+			var raw_vis = new THREE.Vector3( message2.pose.pose.position.z, message2.pose.pose.position.x, message2.pose.pose.position.y);
+			var axis_ = new THREE.Vector3( 0, 0, 1);
+			var rotationMatrix = new THREE.Matrix4(); 
+			raw_vis.applyMatrix4(rotationMatrix.makeRotationAxis( axis_, rot ));
+			var x2_ = firstloc[0] + raw_vis.x;
+			var y2_ = firstloc[1] + raw_vis.y;
 			
 			if(loadedMap2 == false) 
 			{
