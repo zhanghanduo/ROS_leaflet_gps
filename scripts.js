@@ -203,8 +203,9 @@ var path_ = [];
 var firstloc;
 var polyline_;
 var polyline2_;
+var quaternion_;
 var rotation;
-var rot;
+// var rot;
 
 //  => Set the value
 paramTopicName.get(function(value) { 
@@ -239,12 +240,12 @@ paramTopicName.get(function(value) {
 			// We have to wait for the GPS before showing the map, because we don't know where we are
 			var x_ = message.pose.pose.position.x;
 			var y_ = message.pose.pose.position.y;
-			var quaternion = new THREE.Quaternion(message.pose.pose.orientation.x, 
+			quaternion_ = new THREE.Quaternion( message.pose.pose.orientation.x, 
 													message.pose.pose.orientation.y, 
 													message.pose.pose.orientation.z, 
 													message.pose.pose.orientation.w );
-			rotation = new THREE.Euler().setFromQuaternion( quaternion, 'XYZ' );
-			rot = rotation.z;
+			// rotation = new THREE.Euler().setFromQuaternion( quaternion, 'XYZ' );
+			// rot = rotation.z;
 			// console.log("rotation: ", rot);
 
 			if(loadedMap == false)
@@ -319,14 +320,24 @@ paramTopicPose_Name.get(function(value) {
 
 		listenerPose.subscribe(function(message2) {
 
+			scale = new THREE.Vector3 (1, 1, 1);
+			var cam2enu = new THREE.Matrix4();
+			var quaternion_c = new THREE.Quaternion( message2.pose.pose.orientation.x, 
+													message2.pose.pose.orientation.y, 
+													message2.pose.pose.orientation.z, 
+													message2.pose.pose.orientation.w );
 
-			// var raw_vis = [ message2.pose.pose.position.x, message2.pose.pose.position.z ];
-			// var after_rot = rotateVector(raw_vis, - rot);
-			// var x2_ = firstloc[0] + after_rot[0];
-			// var y2_ = firstloc[1] + after_rot[1];
-
-
+			var quaternion_cam2imu = new THREE.Quaternion( 0.5, -0.5, 0.5, -0.5 );
+			quaternion_c.multiply(quaternion_cam2imu).normalize();									
 			var raw_vis = new THREE.Vector3( message2.pose.pose.position.z, message2.pose.pose.position.x, message2.pose.pose.position.y);
+
+			cam2enu.makeRotationFromQuaternion(quaternion_c);
+			cam2enu.makeTranslation(raw_vis);
+			
+			// Left multiply a R(imu0 to enu) Matrix4
+
+
+
 			var axis_ = new THREE.Vector3( 0, 0, 1);
 			var rotationMatrix = new THREE.Matrix4(); 
 			raw_vis.applyMatrix4(rotationMatrix.makeRotationAxis( axis_, rot ));
