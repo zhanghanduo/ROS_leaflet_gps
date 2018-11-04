@@ -200,12 +200,15 @@ var paramTopicName = new ROSLIB.Param({ros : ros, name : '/panel/gps_topic'});
 var paramTopicPose_Name = new ROSLIB.Param({ros : ros, name : '/panel/pose_topic'});
 var paramNbCycles = new ROSLIB.Param({ros : ros, name : '/panel/nb_cycles'});
 var path_ = [];
-var firstloc;
+// var firstloc;
 var polyline_;
 var polyline2_;
 var quaternion_;
 var rotation;
-// var rot;
+var translation_;
+
+var quaternion0;
+var translation0;
 
 //  => Set the value
 paramTopicName.get(function(value) { 
@@ -244,9 +247,10 @@ paramTopicName.get(function(value) {
 													message.pose.pose.orientation.y, 
 													message.pose.pose.orientation.z, 
 													message.pose.pose.orientation.w );
-			// rotation = new THREE.Euler().setFromQuaternion( quaternion, 'XYZ' );
-			// rot = rotation.z;
+			rotation = new THREE.Euler().setFromQuaternion( quaternion_, 'XYZ' );
+			// rot = rotation.z - Math.PI/4;
 			// console.log("rotation: ", rot);
+			translation_ = new THREE.Vector3( x_, y_, message.pose.pose.position.z );
 
 			if(loadedMap == false)
 			{
@@ -260,7 +264,9 @@ paramTopicName.get(function(value) {
 				markerPosition.addTo(map);
 				markerPosition2.addTo(map);
 
-				firstloc = [x_, y_];
+				// firstloc = [x_, y_];
+				translation0 = translation_;
+				quaternion0 = quaternion_;
 
 				path_.push(ll0);
 				polyline_ = L.polyline(path_, {color: 'red'}, {weight: 1}).addTo(map);
@@ -320,29 +326,51 @@ paramTopicPose_Name.get(function(value) {
 
 		listenerPose.subscribe(function(message2) {
 
+			// 0 Declaration of vairables
 			scale = new THREE.Vector3 (1, 1, 1);
-			var cam2enu = new THREE.Matrix4();
+			var cam2gps0 = new THREE.Matrix4();
 			var quaternion_c = new THREE.Quaternion( message2.pose.pose.orientation.x, 
 													message2.pose.pose.orientation.y, 
 													message2.pose.pose.orientation.z, 
 													message2.pose.pose.orientation.w );
 
+			var raw_vis = new THREE.Vector3( message2.pose.pose.position.x, message2.pose.pose.position.y, message2.pose.pose.position.z);
+
 			var quaternion_cam2imu = new THREE.Quaternion( 0.5, -0.5, 0.5, -0.5 );
-			quaternion_c.multiply(quaternion_cam2imu).normalize();									
-			var raw_vis = new THREE.Vector3( message2.pose.pose.position.z, message2.pose.pose.position.x, message2.pose.pose.position.y);
+			var quaternion_imu2cam = new THREE.Quaternion( 0.5, -0.5, 0.5, 0.5 );
 
-			cam2enu.makeRotationFromQuaternion(quaternion_c);
-			cam2enu.makeTranslation(raw_vis);
-			
-			// Left multiply a R(imu0 to enu) Matrix4
+			var cam2imu = new THREE.Matrix4();
+			cam2imu.makeRotationFromQuaternion(quaternion_cam2imu);
+
+			// 1 R(camk2cam0) * R(imuk2camk) = R(imuk2cam0)
+			quaternion_c.multiply(quaternion_imu2cam).normalize();
+
+			cam2gps0.compose(raw_vis, quaternion_c, scale);
 
 
+			// 2 R(imu02enu) * R(cam02imu0) * R(imuk2cam0) = R(imuk2enu)
+			var imu02enu = new THREE.Matrix4();
+			imu02enu.compose(translation0, quaternion0, scale);
 
-			var axis_ = new THREE.Vector3( 0, 0, 1);
-			var rotationMatrix = new THREE.Matrix4(); 
-			raw_vis.applyMatrix4(rotationMatrix.makeRotationAxis( axis_, rot ));
-			var x2_ = firstloc[0] + raw_vis.x;
-			var y2_ = firstloc[1] + raw_vis.y;
+			imu02enu.multiply(cam2imu);
+
+			imu02enu.multiply(cam2gps0);
+
+			// console.log("cam2gps0", cam2gps0);
+
+			imu02enu.decompose(raw_vis, quaternion_c, scale);
+
+			// console.log("translation_2: ", raw_vis);
+
+			// var axis_ = new THREE.Vector3( 0, 1, 0);
+			// var rotationMatrix = new THREE.Matrix4(); 
+			// raw_vis.applyMatrix4(rotationMatrix.makeRotationAxis( axis_, rot ));
+
+			var x2_ = raw_vis.x;
+			var y2_ = raw_vis.y;
+
+			// var x2_ = firstloc[0] + raw_vis.x;
+			// var y2_ = firstloc[1] + raw_vis.y;
 			
 			if(loadedMap2 == false) 
 			{
