@@ -38,8 +38,8 @@ And then, open the page `index.html` with your favorite browser, and you're read
 
 ## Structure
 
- The repo has three folders.
-     .
+```bash
+    .
     ├── assets                  # Pictures and icons.
     ├── launch                  # Demo launch files
     ├── lib                     # All important js libraries, including leaflet, leaflet plugins, three 3D lib.
@@ -49,12 +49,13 @@ And then, open the page `index.html` with your favorite browser, and you're read
     ├── onemap_scripts.js       # I want to replace onemap with openstreetmap but currently not working. Please do not use it right now!
     ├── LICENSE
     └── README.md
+```
 
 ## Demo
 
 You can download the [ROS bag](https://entuedu-my.sharepoint.com/:f:/g/personal/hzhang032_e_ntu_edu_sg/El7PAWpX1TBCkkD9n_UgYK0B8PzioXaqwTTz8RZJkTuWEg?e=pqD54P) to directly try the demo. 
 
-### Configuration
+#### Configuration
 
 The configuration of the module can be modified just by changing the value at the top of the script.js file.
 
@@ -62,7 +63,7 @@ The configuration of the module can be modified just by changing the value at th
  - `CONFIG_tile_local_path` : Path to the downloaded tiles
  - `CONFIG_ROS_server_URI` : Route to ROS server. It could be localhost or an IP.
 
-### Parameters
+#### Parameters
 
 In the lab, we're working with two different GPS, which are not publishing on the same topic and at the same frequency. So two parameters can be set : 
 
@@ -73,7 +74,7 @@ In the lab, we're working with two different GPS, which are not publishing on th
 You can set those in a ROS launch file, or set it using `rosparam set`, then refreshing the page in the browser by clicking on the refresh button.
 
 
-### Execute
+#### Execute
 
 
  1) Run `roscore`.
