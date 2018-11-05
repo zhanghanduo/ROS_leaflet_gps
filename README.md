@@ -64,8 +64,9 @@ The configuration of the module can be modified just by changing the value at th
 ### Parameters
 
 In the lab, we're working with two different GPS, which are not publishing on the same topic and at the same frequency. So two parameters can be set : 
+
 - `/panel/gps_topic` for the GPS topic's name. Example : `/gps`
-- `/panel/pose_topic` for the VO topics's name. Example : `/slam/pose`
+- `/panel/pose_topic` for the VO topic's name. Example : `/slam/pose`
 - `/panel/nb_cycles` for the number of cycles between each refreshing. Example : `20`
 
 You can set those in a ROS launch file, or set it using `rosparam set`, then refreshing the page in the browser by clicking on the refresh button.
