@@ -45,7 +45,8 @@ And then, open the page `index.html` with your favorite browser, and you're read
     ├── lib                     # All important js libraries, including leaflet, leaflet plugins, three 3D lib.
     ├── index.html              # Demo html page for displaying the map.
     ├── script_pose.js          # Demo js script to display `geometry_msgs/PoseStampedWithCovariance` message.
-    ├── script_pose.js          # Demo js script to display `NavSatFix` message.
+    ├── script_fix.js           # Demo js script to display `NavSatFix` message.
+    ├── onemap_scripts.js       # I want to replace onemap with openstreetmap but currently not working. Please do not use it right now!
     ├── LICENSE
     └── README.md
 
