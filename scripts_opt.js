@@ -24,8 +24,7 @@ var CONFIG_default_pose_topic_name = '/sslam/robot/pose';
 // The number of cycles between every marker position reload
 var CONFIG_cycles_number = 10;
 
-// If the input camera pose frame coordinate system is z_up or z_forward
-var z_up = true;
+
 
 // We can download the map online on OSM server, but
 // it won't work if the car isn't connected to the internet.
@@ -43,14 +42,29 @@ var CONFIG_ROS_server_URI = 'localhost';
 //===> Global variables
 var map;
 var selectionMode;
-var carIcon = L.icon({
-    iconUrl: 'assets/car1.png',
-    iconSize: [22, 22],
+
+var gps_icon = L.icon({
+    iconUrl: 'assets/gps.png',
+    iconSize: [25, 25],
     iconAnchor: [10, 20],
     popupAnchor: [0, 0],
 });
-var markerPosition = L.marker([0,0]);
-var markerPosition2 = L.marker([0,0], {icon: carIcon});
+
+var estimation = L.icon({
+    iconUrl: 'assets/perception.png',
+    iconSize: [25, 25],
+    iconAnchor: [10, 20],
+    popupAnchor: [0, 0],
+});
+var carIcon = L.icon({
+    iconUrl: 'assets/robot.png',
+    iconSize: [25, 25],
+    iconAnchor: [10, 20],
+    popupAnchor: [0, 0],
+});
+var markerPosition = L.marker([0,0], {icon: gps_icon});
+var markerPosition2 = L.marker([0,0], {icon: estimation});
+var markerPosition3 = L.marker([0,0], {icon: carIcon});
 // ============================= FUNCTIONS
 
 var rotateVector = function(vec, ang)
@@ -60,27 +74,6 @@ var rotateVector = function(vec, ang)
     var sin = Math.sin(ang);
     return new Array(Math.round(10000*(vec[0] * cos - vec[1] * sin))/10000, Math.round(10000*(vec[0] * sin + vec[1] * cos))/10000);
 };
-
-// // Rotate an object around an axis in object space
-// function rotateAroundObjectAxis( object, axis, radians ) {
-
-//     var rotationMatrix = new THREE.Matrix4();
-
-//     rotationMatrix.makeRotationAxis( axis.normalize(), radians );
-//     object.matrix.multiplySelf( rotationMatrix );                       // post-multiply
-//     object.rotation.setRotationFromMatrix( object.matrix );
-// }
-
-// // Rotate an object around an axis in world space (the axis passes through the object's position)       
-// function rotateAroundWorldAxis( object, axis, radians ) {
-
-//     var rotationMatrix = new THREE.Matrix4();
-
-//     rotationMatrix.makeRotationAxis( axis.normalize(), radians );
-//     rotationMatrix.multiplySelf( object.matrix );                       // pre-multiply
-//     object.matrix = rotationMatrix;
-//     object.rotation.setRotationFromMatrix( object.matrix );
-// }
 
 // ===> mapInit() : init the map
 function mapInit() {
@@ -123,9 +116,11 @@ var bounds;
 var zoomLevel = 17;
 var loadedMap = false;
 var loadedMap2 = false;
+var loadedMap3 = false;
 var i = 0;
 var listenerGPS;
 var listenerPose;
+var listernerOpt;
 
 //===> ROS connexion
 var ros = new ROSLIB.Ros({
@@ -196,18 +191,19 @@ mapInit();
 //  => Create param with initial value
 var paramTopicNameValue = CONFIG_default_gps_topic_name;
 var paramTopicNamePose = CONFIG_default_pose_topic_name;
+var paramTopicNameOpt = '/optimized/pose';
 var paramNbCyclesValue = CONFIG_cycles_number;
 
 //  => Init the ROS param
 var paramTopicName = new ROSLIB.Param({ros : ros, name : '/panel/gps_topic'});
 var paramTopicPose_Name = new ROSLIB.Param({ros : ros, name : '/panel/pose_topic'});
+var paramTopicOpt_Name = new ROSLIB.Param({ros : ros, name : '/panel/opt_topic'});
 var paramNbCycles = new ROSLIB.Param({ros : ros, name : '/panel/nb_cycles'});
-// var z_up = new ROSLIB.Param({ros : ros, name : 'z_up'});
-// console.log("z_up?: ", z_up);
 var path_ = [];
 // var firstloc;
 var polyline_;
 var polyline2_;
+var polyline3_;
 var quaternion_;
 var rotation;
 var translation_;
@@ -268,6 +264,7 @@ paramTopicName.get(function(value) {
 				// Add the marker on the map
 				markerPosition.addTo(map);
 				markerPosition2.addTo(map);
+				markerPosition3.addTo(map);
 
 				// firstloc = [x_, y_];
 				translation0 = translation_;
@@ -331,7 +328,112 @@ paramTopicPose_Name.get(function(value) {
 
 		listenerPose.subscribe(function(message2) {
 
-			// 0 Declaration of variables
+			// 0 Declaration of vairables
+			scale = new THREE.Vector3 (1, 1, 1);
+			var cam2gps0 = new THREE.Matrix4();
+			var quaternion_c = new THREE.Quaternion( message2.pose.pose.orientation.x, 
+													message2.pose.pose.orientation.y, 
+													message2.pose.pose.orientation.z, 
+													message2.pose.pose.orientation.w );
+
+			var raw_vis = new THREE.Vector3( message2.pose.pose.position.x, message2.pose.pose.position.y, message2.pose.pose.position.z);
+
+			var imu02enu = new THREE.Matrix4();
+			imu02enu.compose(translation0, quaternion0, scale);
+
+			if(z_up == true){
+				cam2gps0.compose(raw_vis, quaternion_c, scale);
+
+				// R(imu02enu) * R(imuk2imu0) = R(imuk2enu)
+				imu02enu.multiply(cam2gps0);
+
+			}
+			else {
+				var quaternion_cam2imu = new THREE.Quaternion( 0.5, -0.5, 0.5, -0.5 );
+				var quaternion_imu2cam = new THREE.Quaternion( 0.5, -0.5, 0.5, 0.5 );
+	
+				var cam2imu = new THREE.Matrix4();
+				cam2imu.makeRotationFromQuaternion(quaternion_cam2imu);
+	
+				// 1 R(camk2cam0) * R(imuk2camk) = R(imuk2cam0)
+				quaternion_c.multiply(quaternion_imu2cam).normalize();
+	
+				cam2gps0.compose(raw_vis, quaternion_c, scale);
+	
+	
+				// 2 R(imu02enu) * R(cam02imu0) * R(imuk2cam0) = R(imuk2enu)
+	
+				imu02enu.multiply(cam2imu);
+	
+				imu02enu.multiply(cam2gps0);
+			}
+
+			imu02enu.decompose(raw_vis, quaternion_c, scale);
+
+			// console.log("translation_2: ", raw_vis);
+
+			// var axis_ = new THREE.Vector3( 0, 1, 0);
+			// var rotationMatrix = new THREE.Matrix4(); 
+			// raw_vis.applyMatrix4(rotationMatrix.makeRotationAxis( axis_, rot ));
+
+			var x2_ = raw_vis.x;
+			var y2_ = raw_vis.y;
+
+			// var x2_ = firstloc[0] + raw_vis.x;
+			// var y2_ = firstloc[1] + raw_vis.y;
+			
+			if(loadedMap2 == false) 
+			{
+				polyline2_ = L.polyline(path_, {color: 'blue'}).addTo(map);
+
+				loadedMap2 = true;
+			}
+
+			if(i2 % paramNbCyclesValue == 0)
+			{
+
+				utm = L.utm(x2_, y2_, 48, 'N', false);
+				var ll = utm.latLng();
+				if (ll){
+					markerPosition2.setLatLng(ll);
+					polyline2_.addLatLng(ll);
+				}
+
+				// console.log("Update position");
+
+			}
+
+			i2 ++;
+		});
+	});
+});
+
+paramTopicOpt_Name.get(function(value) { 
+	// If the param isn't created yet, we keep the default value
+	if(value != null)
+		paramTopicNameOpt = value; 
+	else
+		paramTopicOpt_Name.set(paramTopicNameOpt);
+
+	paramNbCycles.get(function(value) {
+		// If the param isn't created yet, we keep the default value
+		if(value != null) 
+			paramNbCyclesValue = value; 
+		else
+		paramNbCycles.set(paramNbCyclesValue);
+
+		listenerOpt = new ROSLIB.Topic({
+			ros : ros,
+			name : paramTopicNameOpt,
+			messageType : 'geometry_msgs/PoseWithCovarianceStamped'
+		});
+
+		var i2 = 0;
+		var utm;
+
+		listenerOpt.subscribe(function(message2) {
+
+			// 0 Declaration of vairables
 			scale = new THREE.Vector3 (1, 1, 1);
 			var cam2gps0 = new THREE.Matrix4();
 			var quaternion_c = new THREE.Quaternion( message2.pose.pose.orientation.x, 
@@ -372,6 +474,7 @@ paramTopicPose_Name.get(function(value) {
 			}
 
 			// console.log("cam2gps0", cam2gps0);
+
 			imu02enu.decompose(raw_vis, quaternion_c, scale);
 
 			// console.log("translation_2: ", raw_vis);
@@ -382,15 +485,12 @@ paramTopicPose_Name.get(function(value) {
 
 			var x2_ = raw_vis.x;
 			var y2_ = raw_vis.y;
-
-			// var x2_ = firstloc[0] + raw_vis.x;
-			// var y2_ = firstloc[1] + raw_vis.y;
 			
-			if(loadedMap2 == false) 
+			if(loadedMap3 == false) 
 			{
-				polyline2_ = L.polyline(path_, {color: 'blue'}).addTo(map);
+				polyline3_ = L.polyline(path_, {color: 'green'}).addTo(map);
 
-				loadedMap2 = true;
+				loadedMap3 = true;
 			}
 
 			if(i2 % paramNbCyclesValue == 0)
@@ -399,8 +499,8 @@ paramTopicPose_Name.get(function(value) {
 				utm = L.utm(x2_, y2_, 48, 'N', false);
 				var ll = utm.latLng();
 				if (ll){
-					markerPosition2.setLatLng(ll);
-					polyline2_.addLatLng(ll);
+					markerPosition3.setLatLng(ll);
+					polyline3_.addLatLng(ll);
 				}
 
 				// console.log("Update position");
