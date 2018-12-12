@@ -293,9 +293,9 @@ paramTopicName.get(function(value) {
 				// console.log("path: ", JSON.stringify(path_));
 
 				// If the marker has went out of the map, we move the map
-				bounds = map.getBounds();
-				if(!bounds.contains(ll0))
-					map.setView(ll0, zoomLevel);
+				// bounds = map.getBounds();
+				// if(!bounds.contains(ll0))
+				// 	map.setView(ll0, zoomLevel);
 				
 				// console.log("Update position");
 			}
@@ -341,50 +341,44 @@ paramTopicPose_Name.get(function(value) {
 
 			var raw_vis = new THREE.Vector3( message2.pose.pose.position.x, message2.pose.pose.position.y, message2.pose.pose.position.z);
 
-			var imu02enu = new THREE.Matrix4();
-			imu02enu.compose(translation0, quaternion0, scale);
+            var imu02enu = new THREE.Matrix4();
 
-			if(z_up == true){
-				cam2gps0.compose(raw_vis, quaternion_c, scale);
+            if(z_up == true){
+                cam2gps0.compose(raw_vis, quaternion_c, scale);
 
-				// R(imu02enu) * R(imuk2imu0) = R(imuk2enu)
-				imu02enu.multiply(cam2gps0);
+                // R(imu02enu) * R(imuk2imu0) = R(imuk2enu)
+                // imu02enu.multiply(cam2gps0);
 
-			}
-			else {
-				var quaternion_cam2imu = new THREE.Quaternion( 0.5, -0.5, 0.5, -0.5 );
-				var quaternion_imu2cam = new THREE.Quaternion( 0.5, -0.5, 0.5, 0.5 );
-	
-				var cam2imu = new THREE.Matrix4();
-				cam2imu.makeRotationFromQuaternion(quaternion_cam2imu);
-	
-				// 1 R(camk2cam0) * R(imuk2camk) = R(imuk2cam0)
-				quaternion_c.multiply(quaternion_imu2cam).normalize();
-	
-				cam2gps0.compose(raw_vis, quaternion_c, scale);
-	
-	
-				// 2 R(imu02enu) * R(cam02imu0) * R(imuk2cam0) = R(imuk2enu)
-	
-				imu02enu.multiply(cam2imu);
-	
-				imu02enu.multiply(cam2gps0);
-			}
+                cam2gps0.decompose(raw_vis, quaternion_c, scale);
+                var x2_ = raw_vis.x + translation0.x;
+                var y2_ = raw_vis.y + translation0.y;
+            }
+            else {
+                imu02enu.compose(translation0, quaternion0, scale);
 
-			// console.log("cam2gps0", cam2gps0);
-			imu02enu.decompose(raw_vis, quaternion_c, scale);
+                var quaternion_cam2imu = new THREE.Quaternion( 0.5, -0.5, 0.5, -0.5 );
+                var quaternion_imu2cam = new THREE.Quaternion( 0.5, -0.5, 0.5, 0.5 );
 
-			// console.log("translation_2: ", raw_vis);
+                var cam2imu = new THREE.Matrix4();
+                cam2imu.makeRotationFromQuaternion(quaternion_cam2imu);
 
-			// var axis_ = new THREE.Vector3( 0, 1, 0);
-			// var rotationMatrix = new THREE.Matrix4(); 
-			// raw_vis.applyMatrix4(rotationMatrix.makeRotationAxis( axis_, rot ));
+                // 1 R(camk2cam0) * R(imuk2camk) = R(imuk2cam0)
+                quaternion_c.multiply(quaternion_imu2cam).normalize();
 
-			var x2_ = raw_vis.x;
-			var y2_ = raw_vis.y;
+                cam2gps0.compose(raw_vis, quaternion_c, scale);
 
-			// var x2_ = firstloc[0] + raw_vis.x;
-			// var y2_ = firstloc[1] + raw_vis.y;
+
+                // 2 R(imu02enu) * R(cam02imu0) * R(imuk2cam0) = R(imuk2enu)
+
+                imu02enu.multiply(cam2imu);
+
+                imu02enu.multiply(cam2gps0);
+
+                imu02enu.decompose(raw_vis, quaternion_c, scale);
+
+                var x2_ = raw_vis.x;
+                var y2_ = raw_vis.y;
+            }
 			
 			if(loadedMap2 == false) 
 			{

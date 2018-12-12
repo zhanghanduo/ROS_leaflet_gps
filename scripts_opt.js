@@ -58,22 +58,25 @@ var estimation = L.icon({
 });
 var carIcon = L.icon({
     iconUrl: 'assets/robot.png',
-    iconSize: [25, 25],
-    iconAnchor: [10, 20],
+    iconSize: [26, 26],
+    iconAnchor: [8, 25],
     popupAnchor: [0, 0],
 });
 var markerPosition = L.marker([0,0], {icon: gps_icon});
 var markerPosition2 = L.marker([0,0], {icon: estimation});
 var markerPosition3 = L.marker([0,0], {icon: carIcon});
+var loadedMap = false;
+var loadedMap2 = false;
+var loadedMap3 = false;
 // ============================= FUNCTIONS
 
-var rotateVector = function(vec, ang)
-{
-    // ang = -ang * (Math.PI/180);
-    var cos = Math.cos(ang);
-    var sin = Math.sin(ang);
-    return new Array(Math.round(10000*(vec[0] * cos - vec[1] * sin))/10000, Math.round(10000*(vec[0] * sin + vec[1] * cos))/10000);
-};
+// var rotateVector = function(vec, ang)
+// {
+//     // ang = -ang * (Math.PI/180);
+//     var cos = Math.cos(ang);
+//     var sin = Math.sin(ang);
+//     return new Array(Math.round(10000*(vec[0] * cos - vec[1] * sin))/10000, Math.round(10000*(vec[0] * sin + vec[1] * cos))/10000);
+// };
 
 // ===> mapInit() : init the map
 function mapInit() {
@@ -106,6 +109,9 @@ function mapInit() {
 
 	L.easyButton('glyphicon glyphicon-refresh', function(btn, map){
 		window.location.reload();
+		loadedMap = false;
+        loadedMap2 = false;
+        loadedMap3 = false;
 	}).addTo(map);
 
 	return map;
@@ -114,14 +120,12 @@ function mapInit() {
 // ============================= SCRIPT
 var bounds;
 var zoomLevel = 17;
-var loadedMap = false;
-var loadedMap2 = false;
-var loadedMap3 = false;
 var i = 0;
 var listenerGPS;
 var listenerPose;
 var listernerOpt;
-
+// If the input camera pose frame coordinate system is z_up or z_forward
+var z_up = true;
 //===> ROS connexion
 var ros = new ROSLIB.Ros({
 	url : 'ws://'+ CONFIG_ROS_server_URI +':9090'
@@ -191,7 +195,7 @@ mapInit();
 //  => Create param with initial value
 var paramTopicNameValue = CONFIG_default_gps_topic_name;
 var paramTopicNamePose = CONFIG_default_pose_topic_name;
-var paramTopicNameOpt = '/optimized/pose';
+var paramTopicNameOpt = '/pose_optimizer/optimized_pose';
 var paramNbCyclesValue = CONFIG_cycles_number;
 
 //  => Init the ROS param
@@ -205,7 +209,7 @@ var polyline_;
 var polyline2_;
 var polyline3_;
 var quaternion_;
-var rotation;
+// var rotation;
 var translation_;
 
 var quaternion0;
@@ -225,7 +229,6 @@ paramTopicName.get(function(value) {
 			paramNbCyclesValue = value; 
 		else
 		paramNbCycles.set(paramNbCyclesValue);
-
 
 		// Set the listener information
 		listenerGPS = new ROSLIB.Topic({
@@ -248,9 +251,8 @@ paramTopicName.get(function(value) {
 													message.pose.pose.orientation.y, 
 													message.pose.pose.orientation.z, 
 													message.pose.pose.orientation.w );
-			rotation = new THREE.Euler().setFromQuaternion( quaternion_, 'XYZ' );
-			// rot = rotation.z - Math.PI/4;
-			// console.log("rotation: ", rot);
+			// rotation = new THREE.Euler().setFromQuaternion( quaternion_, 'XYZ' );
+
 			translation_ = new THREE.Vector3( x_, y_, message.pose.pose.position.z );
 
 			if(loadedMap == false)
@@ -261,12 +263,12 @@ paramTopicName.get(function(value) {
 				if (ll0){
 					map.setView(ll0, zoomLevel);
 				}
+                // console.log("gps first: ", x_, y_);
 				// Add the marker on the map
 				markerPosition.addTo(map);
 				markerPosition2.addTo(map);
 				markerPosition3.addTo(map);
 
-				// firstloc = [x_, y_];
 				translation0 = translation_;
 				quaternion0 = quaternion_;
 
@@ -303,7 +305,7 @@ paramTopicName.get(function(value) {
 	});
 });
 
-paramTopicPose_Name.get(function(value) { 
+paramTopicPose_Name.get(function(value) {
 	// If the param isn't created yet, we keep the default value
 	if(value != null)
 		paramTopicNamePose = value; 
@@ -331,7 +333,7 @@ paramTopicPose_Name.get(function(value) {
 			// 0 Declaration of vairables
 			scale = new THREE.Vector3 (1, 1, 1);
 			var cam2gps0 = new THREE.Matrix4();
-			var quaternion_c = new THREE.Quaternion( message2.pose.pose.orientation.x, 
+			var quaternion_c = new THREE.Quaternion(message2.pose.pose.orientation.x,
 													message2.pose.pose.orientation.y, 
 													message2.pose.pose.orientation.z, 
 													message2.pose.pose.orientation.w );
@@ -339,16 +341,20 @@ paramTopicPose_Name.get(function(value) {
 			var raw_vis = new THREE.Vector3( message2.pose.pose.position.x, message2.pose.pose.position.y, message2.pose.pose.position.z);
 
 			var imu02enu = new THREE.Matrix4();
-			imu02enu.compose(translation0, quaternion0, scale);
 
 			if(z_up == true){
 				cam2gps0.compose(raw_vis, quaternion_c, scale);
 
 				// R(imu02enu) * R(imuk2imu0) = R(imuk2enu)
-				imu02enu.multiply(cam2gps0);
+				// imu02enu.multiply(cam2gps0);
 
+                cam2gps0.decompose(raw_vis, quaternion_c, scale);
+                var x2_ = raw_vis.x + translation0.x;
+                var y2_ = raw_vis.y + translation0.y;
 			}
 			else {
+                imu02enu.compose(translation0, quaternion0, scale);
+
 				var quaternion_cam2imu = new THREE.Quaternion( 0.5, -0.5, 0.5, -0.5 );
 				var quaternion_imu2cam = new THREE.Quaternion( 0.5, -0.5, 0.5, 0.5 );
 	
@@ -366,23 +372,14 @@ paramTopicPose_Name.get(function(value) {
 				imu02enu.multiply(cam2imu);
 	
 				imu02enu.multiply(cam2gps0);
+
+                imu02enu.decompose(raw_vis, quaternion_c, scale);
+
+                var x2_ = raw_vis.x;
+                var y2_ = raw_vis.y;
 			}
 
-			imu02enu.decompose(raw_vis, quaternion_c, scale);
-
-			// console.log("translation_2: ", raw_vis);
-
-			// var axis_ = new THREE.Vector3( 0, 1, 0);
-			// var rotationMatrix = new THREE.Matrix4(); 
-			// raw_vis.applyMatrix4(rotationMatrix.makeRotationAxis( axis_, rot ));
-
-			var x2_ = raw_vis.x;
-			var y2_ = raw_vis.y;
-
-			// var x2_ = firstloc[0] + raw_vis.x;
-			// var y2_ = firstloc[1] + raw_vis.y;
-			
-			if(loadedMap2 == false) 
+			if(loadedMap2 == false)
 			{
 				polyline2_ = L.polyline(path_, {color: 'blue'}).addTo(map);
 
@@ -425,66 +422,62 @@ paramTopicOpt_Name.get(function(value) {
 		listenerOpt = new ROSLIB.Topic({
 			ros : ros,
 			name : paramTopicNameOpt,
-			messageType : 'geometry_msgs/PoseWithCovarianceStamped'
+			messageType : 'geometry_msgs/PoseStamped'
 		});
 
-		var i2 = 0;
+		var i3 = 0;
 		var utm;
 
-		listenerOpt.subscribe(function(message2) {
+		listenerOpt.subscribe(function(message3) {
 
 			// 0 Declaration of vairables
 			scale = new THREE.Vector3 (1, 1, 1);
 			var cam2gps0 = new THREE.Matrix4();
-			var quaternion_c = new THREE.Quaternion( message2.pose.pose.orientation.x, 
-													message2.pose.pose.orientation.y, 
-													message2.pose.pose.orientation.z, 
-													message2.pose.pose.orientation.w );
+			var quaternion_c = new THREE.Quaternion(message3.pose.orientation.x,
+													message3.pose.orientation.y,
+													message3.pose.orientation.z,
+													message3.pose.orientation.w );
 
-			var raw_vis = new THREE.Vector3( message2.pose.pose.position.x, message2.pose.pose.position.y, message2.pose.pose.position.z);
+			var raw_vis = new THREE.Vector3( message3.pose.position.x, message3.pose.position.y, message3.pose.position.z);
 
-			var imu02enu = new THREE.Matrix4();
-			imu02enu.compose(translation0, quaternion0, scale);
+            var imu02enu = new THREE.Matrix4();
 
-			if(z_up == true){
-				cam2gps0.compose(raw_vis, quaternion_c, scale);
+            if(z_up == true){
+                cam2gps0.compose(raw_vis, quaternion_c, scale);
 
-				// R(imu02enu) * R(imuk2imu0) = R(imuk2enu)
-				imu02enu.multiply(cam2gps0);
+                // R(imu02enu) * R(imuk2imu0) = R(imuk2enu)
+                // imu02enu.multiply(cam2gps0);
 
-			}
-			else {
-				var quaternion_cam2imu = new THREE.Quaternion( 0.5, -0.5, 0.5, -0.5 );
-				var quaternion_imu2cam = new THREE.Quaternion( 0.5, -0.5, 0.5, 0.5 );
-	
-				var cam2imu = new THREE.Matrix4();
-				cam2imu.makeRotationFromQuaternion(quaternion_cam2imu);
-	
-				// 1 R(camk2cam0) * R(imuk2camk) = R(imuk2cam0)
-				quaternion_c.multiply(quaternion_imu2cam).normalize();
-	
-				cam2gps0.compose(raw_vis, quaternion_c, scale);
-	
-	
-				// 2 R(imu02enu) * R(cam02imu0) * R(imuk2cam0) = R(imuk2enu)
-	
-				imu02enu.multiply(cam2imu);
-	
-				imu02enu.multiply(cam2gps0);
-			}
+                cam2gps0.decompose(raw_vis, quaternion_c, scale);
+                var x2_ = raw_vis.x + translation0.x;
+                var y2_ = raw_vis.y + translation0.y;
+            }
+            else {
+                imu02enu.compose(translation0, quaternion0, scale);
 
-			// console.log("cam2gps0", cam2gps0);
+                var quaternion_cam2imu = new THREE.Quaternion( 0.5, -0.5, 0.5, -0.5 );
+                var quaternion_imu2cam = new THREE.Quaternion( 0.5, -0.5, 0.5, 0.5 );
 
-			imu02enu.decompose(raw_vis, quaternion_c, scale);
+                var cam2imu = new THREE.Matrix4();
+                cam2imu.makeRotationFromQuaternion(quaternion_cam2imu);
 
-			// console.log("translation_2: ", raw_vis);
+                // 1 R(camk2cam0) * R(imuk2camk) = R(imuk2cam0)
+                quaternion_c.multiply(quaternion_imu2cam).normalize();
 
-			// var axis_ = new THREE.Vector3( 0, 1, 0);
-			// var rotationMatrix = new THREE.Matrix4(); 
-			// raw_vis.applyMatrix4(rotationMatrix.makeRotationAxis( axis_, rot ));
+                cam2gps0.compose(raw_vis, quaternion_c, scale);
 
-			var x2_ = raw_vis.x;
-			var y2_ = raw_vis.y;
+
+                // 2 R(imu02enu) * R(cam02imu0) * R(imuk2cam0) = R(imuk2enu)
+
+                imu02enu.multiply(cam2imu);
+
+                imu02enu.multiply(cam2gps0);
+
+                imu02enu.decompose(raw_vis, quaternion_c, scale);
+
+                var x2_ = raw_vis.x;
+                var y2_ = raw_vis.y;
+            }
 			
 			if(loadedMap3 == false) 
 			{
@@ -493,7 +486,7 @@ paramTopicOpt_Name.get(function(value) {
 				loadedMap3 = true;
 			}
 
-			if(i2 % paramNbCyclesValue == 0)
+			if(i3 % paramNbCyclesValue == 0)
 			{
 
 				utm = L.utm(x2_, y2_, 48, 'N', false);
@@ -507,7 +500,7 @@ paramTopicOpt_Name.get(function(value) {
 
 			}
 
-			i2 ++;
+			i3 ++;
 		});
 	});
 });

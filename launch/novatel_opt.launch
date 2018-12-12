@@ -2,7 +2,8 @@
     <!-- <param name="/panel/gps_topic" value="/kitti/oxts/gps/fix" /> -->
     <param name="/panel/gps_topic" value="/gps_pose" />
     <param name="/panel/pose_topic" value="/sslam/robot/pose" />
-    <param name="/panel/opt_topic" value="/optimized/pose" />
+    <!--<param name="/panel/pose_topic" value="/gps_aligned" />-->
+    <param name="/panel/opt_topic" value="/pose_optimizer/optimized_pose" />
     <param name="/panel/nb_cycles" value="7" />
     <param name="z_up" value="true" />
     <include file="$(find rosbridge_server)/launch/rosbridge_websocket.launch" > 
