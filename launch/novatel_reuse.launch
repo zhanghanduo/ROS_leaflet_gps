@@ -1,0 +1,10 @@
+<launch>
+    <!-- <param name="/panel/gps_topic" value="/kitti/oxts/gps/fix" /> -->
+    <param name="/panel/gps_topic" value="/gps_pose" />
+    <param name="/panel/pose_topic" value="/loop_fusion_node/odometry_rect" />
+    <param name="/panel/nb_cycles" value="7" />
+    <!-- <param name="z_up" value="true" /> -->
+    <include file="$(find rosbridge_server)/launch/rosbridge_websocket.launch" > 
+        <arg name="port" value="9090"/>
+    </include>
+</launch>
