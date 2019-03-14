@@ -19,7 +19,7 @@
 // The name of the GPS publisher name by default
 var CONFIG_default_gps_topic_name = '/gps_pose'; // '/kitti/oxts/gps/fix';
 
-var CONFIG_default_pose_topic_name = '/loop_fusion_node/odometry_rect';
+var CONFIG_default_pose_topic_name = '/loop_fusion_node/pose_graph_path';
 
 // The number of cycles between every marker position reload
 var CONFIG_cycles_number = 10;
@@ -214,6 +214,12 @@ var translation_;
 
 var quaternion0;
 var translation0;
+var imu02enu = new THREE.Matrix4();
+var scale = new THREE.Vector3 (1, 1, 1);
+var quaternion_cam2imu = new THREE.Quaternion( 0.5, -0.5, 0.5, -0.5 );
+var quaternion_imu2cam = new THREE.Quaternion( 0.5, -0.5, 0.5, 0.5 );
+var cam2imu = new THREE.Matrix4();
+cam2imu.makeRotationFromQuaternion(quaternion_cam2imu);
 
 //  => Set the value
 paramTopicName.get(function(value) { 
@@ -241,7 +247,7 @@ paramTopicName.get(function(value) {
 
 		// Set the callback function when a message from /gps is received
 
-		var i = 0;
+		var i1 = 0;
 		var utm0;
 
 		listenerGPS.subscribe(function(message) {
@@ -272,6 +278,7 @@ paramTopicName.get(function(value) {
 				// firstloc = [x_, y_];
 				translation0 = translation_;
 				quaternion0 = quaternion_;
+				imu02enu.compose(translation0, quaternion0, scale);
 
 				path_.push(ll0);
 				polyline_ = L.polyline(path_, {color: 'red'}, {weight: 1}).addTo(map);
@@ -280,7 +287,7 @@ paramTopicName.get(function(value) {
 				loadedMap = true;
 			}
 
-			if(i % paramNbCyclesValue == 0)
+			if(i1 % paramNbCyclesValue == 0)
 			{
 
 				utm0 = L.utm(x_, y_, 48, 'N', false);
@@ -300,7 +307,7 @@ paramTopicName.get(function(value) {
 				// console.log("Update position");
 			}
 
-			i++;
+			i1++;
 
 		});
 	});
@@ -323,83 +330,98 @@ paramTopicPose_Name.get(function(value) {
 		listenerPose = new ROSLIB.Topic({
 			ros : ros,
 			name : paramTopicNamePose,
-			messageType : 'nav_msgs/Odometry'
+			messageType : 'nav_msgs/Path'
 		});
 
 		var i2 = 0;
-		var utm;
-
 		listenerPose.subscribe(function(message2) {
 
-			// 0 Declaration of variables
-			var scale = new THREE.Vector3 (1, 1, 1);
-			var cam2gps0 = new THREE.Matrix4();
-			var quaternion_c = new THREE.Quaternion( message2.pose.pose.orientation.x, 
-													message2.pose.pose.orientation.y, 
-													message2.pose.pose.orientation.z, 
-													message2.pose.pose.orientation.w );
-
-			var raw_vis = new THREE.Vector3( message2.pose.pose.position.x, message2.pose.pose.position.y, message2.pose.pose.position.z);
-
-            var imu02enu = new THREE.Matrix4();
-
-            if(z_up == true){
-                cam2gps0.compose(raw_vis, quaternion_c, scale);
-
-                // R(imu02enu) * R(imuk2imu0) = R(imuk2enu)
-                // imu02enu.multiply(cam2gps0);
-
-                cam2gps0.decompose(raw_vis, quaternion_c, scale);
-                var x2_ = raw_vis.x + translation0.x;
-                var y2_ = raw_vis.y + translation0.y;
-            }
-            else {
-                imu02enu.compose(translation0, quaternion0, scale);
-
-                var quaternion_cam2imu = new THREE.Quaternion( 0.5, -0.5, 0.5, -0.5 );
-                var quaternion_imu2cam = new THREE.Quaternion( 0.5, -0.5, 0.5, 0.5 );
-
-                var cam2imu = new THREE.Matrix4();
-                cam2imu.makeRotationFromQuaternion(quaternion_cam2imu);
-
-                // 1 R(camk2cam0) * R(imuk2camk) = R(imuk2cam0)
-                quaternion_c.multiply(quaternion_imu2cam).normalize();
-
-                cam2gps0.compose(raw_vis, quaternion_c, scale);
-
-
-                // 2 R(imu02enu) * R(cam02imu0) * R(imuk2cam0) = R(imuk2enu)
-
-                imu02enu.multiply(cam2imu);
-
-                imu02enu.multiply(cam2gps0);
-
-                imu02enu.decompose(raw_vis, quaternion_c, scale);
-
-                var x2_ = raw_vis.x;
-                var y2_ = raw_vis.y;
-            }
-			
 			if(loadedMap2 == false) 
 			{
 				polyline2_ = L.polyline(path_, {color: 'blue'}).addTo(map);
 
 				loadedMap2 = true;
-			}
 
-			if(i2 % paramNbCyclesValue == 0)
-			{
+			} else if(i2 % paramNbCyclesValue == 0) {
+				// 0 Declaration of variables
+				var latlngs = [];
+				var messages = message2.poses;
+				var path_length = messages.length;
 
-				utm = L.utm(x2_, y2_, 48, 'N', false);
-				var ll = utm.latLng();
-				if (ll){
-					markerPosition2.setLatLng(ll);
-					polyline2_.addLatLng(ll);
+				for (var i = 0; i < path_length; i++) {
+					var scale0 = new THREE.Vector3 (1, 1, 1);
+					var quaternion_c = new THREE.Quaternion( messages[i].pose.orientation.x, 
+															 messages[i].pose.orientation.y, 
+															 messages[i].pose.orientation.z, 
+															 messages[i].pose.orientation.w );
+
+					var raw_vis = new THREE.Vector3( messages[i].pose.position.x, 
+													 messages[i].pose.position.y, 
+													 messages[i].pose.position.z);	
+					
+					var x2_, y2_;
+					var cam2gps0 = new THREE.Matrix4();
+
+					if(z_up == true){
+						cam2gps0.compose(raw_vis, quaternion_c, scale0);
+		
+						// R(imu02enu) * R(imuk2imu0) = R(imuk2enu)
+						// imu02enu.multiply(cam2gps0);
+		
+						cam2gps0.decompose(raw_vis, quaternion_c, scale0);
+						x2_ = raw_vis.x + translation0.x;
+						y2_ = raw_vis.y + translation0.y;
+					} else {
+
+						// 1 R(camk2cam0) * R(imuk2camk) = R(imuk2cam0)
+						quaternion_c.multiply(quaternion_imu2cam).normalize();
+		
+						cam2gps0.compose(raw_vis, quaternion_c, scale0);
+		
+						// 2 R(imu02enu) * R(cam02imu0) * R(imuk2cam0) = R(imuk2enu)
+
+						var imu02enu_ = imu02enu.clone();
+		
+						imu02enu_.multiply(cam2imu);
+		
+						imu02enu_.multiply(cam2gps0);
+		
+						imu02enu_.decompose(raw_vis, quaternion_c, scale0);
+		
+						x2_ = raw_vis.x;
+						y2_ = raw_vis.y;
+					}
+
+					var utm = L.utm(x2_, y2_, 48, 'N', false);
+					var ll = utm.latLng();
+
+					latlngs.push(ll);
+
 				}
 
-				// console.log("Update position");
+				// markerPosition2.setLatLng(ll);
+				// polyline2_.addLatLng(ll);
 
+				polyline2_.setLatLngs(latlngs);
+				markerPosition2.setLatLng(latlngs[path_length-1]);
+				console.log("index of last element ", path_length-1);
+				
 			}
+
+
+			// if(i2 % paramNbCyclesValue == 0)
+			// {
+
+			// 	utm = L.utm(x2_, y2_, 48, 'N', false);
+			// 	var ll = utm.latLng();
+			// 	if (ll){
+			// 		markerPosition2.setLatLng(ll);
+			// 		polyline2_.addLatLng(ll);
+			// 	}
+
+			// 	// console.log("Update position");
+
+			// }
 
 			i2 ++;
 		});
