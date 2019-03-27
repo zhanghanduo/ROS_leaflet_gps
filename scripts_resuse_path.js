@@ -25,7 +25,7 @@ var CONFIG_default_pose_topic_name = '/loop_fusion_node/pose_graph_path';
 var CONFIG_cycles_number = 10;
 
 // If the input camera pose frame coordinate system is z_up or z_forward
-var z_up = false;
+var z_up = true;
 
 // We can download the map online on OSM server, but
 // it won't work if the car isn't connected to the internet.
@@ -202,14 +202,13 @@ var paramNbCyclesValue = CONFIG_cycles_number;
 var paramTopicName = new ROSLIB.Param({ros : ros, name : '/panel/gps_topic'});
 var paramTopicPose_Name = new ROSLIB.Param({ros : ros, name : '/panel/pose_topic'});
 var paramNbCycles = new ROSLIB.Param({ros : ros, name : '/panel/nb_cycles'});
-// var z_up = new ROSLIB.Param({ros : ros, name : 'z_up'});
-// console.log("z_up?: ", z_up);
+// z_up = new ROSLIB.Param({ros : ros, name : 'z_up'});
+console.log("z_up?: ", z_up);
 var path_ = [];
 // var firstloc;
 var polyline_;
 var polyline2_;
 var quaternion_;
-var rotation;
 var translation_;
 
 var quaternion0;
@@ -255,10 +254,10 @@ paramTopicName.get(function(value) {
 			var x_ = message.pose.pose.position.x;
 			var y_ = message.pose.pose.position.y;
 			quaternion_ = new THREE.Quaternion( message.pose.pose.orientation.x, 
-													message.pose.pose.orientation.y, 
-													message.pose.pose.orientation.z, 
-													message.pose.pose.orientation.w );
-			rotation = new THREE.Euler().setFromQuaternion( quaternion_, 'XYZ' );
+												message.pose.pose.orientation.y, 
+												message.pose.pose.orientation.z, 
+												message.pose.pose.orientation.w );
+			// rotation = new THREE.Euler().setFromQuaternion( quaternion_, 'XYZ' );
 			// rot = rotation.z - Math.PI/4;
 			// console.log("rotation: ", rot);
 			translation_ = new THREE.Vector3( x_, y_, message.pose.pose.position.z );
@@ -350,46 +349,47 @@ paramTopicPose_Name.get(function(value) {
 
 				for (var i = 0; i < path_length; i++) {
 					var scale0 = new THREE.Vector3 (1, 1, 1);
-					var quaternion_c = new THREE.Quaternion( messages[i].pose.orientation.x, 
-															 messages[i].pose.orientation.y, 
-															 messages[i].pose.orientation.z, 
-															 messages[i].pose.orientation.w );
+					var rot_body = new THREE.Quaternion( messages[i].pose.orientation.x, 
+															messages[i].pose.orientation.y, 
+															messages[i].pose.orientation.z, 
+															messages[i].pose.orientation.w );
 
-					var raw_vis = new THREE.Vector3( messages[i].pose.position.x, 
+					var trans_body = new THREE.Vector3( messages[i].pose.position.x, 
 													 messages[i].pose.position.y, 
 													 messages[i].pose.position.z);	
 					
 					var x2_, y2_;
 					var cam2gps0 = new THREE.Matrix4();
+					var imu02enu_ = imu02enu.clone();
 
 					if(z_up == true){
-						cam2gps0.compose(raw_vis, quaternion_c, scale0);
+						cam2gps0.compose(trans_body, rot_body, scale0);
 		
 						// R(imu02enu) * R(imuk2imu0) = R(imuk2enu)
-						// imu02enu.multiply(cam2gps0);
+						// imu02enu_.multiply(cam2imu);
+						imu02enu_.multiply(cam2gps0);
 		
-						cam2gps0.decompose(raw_vis, quaternion_c, scale0);
-						x2_ = raw_vis.x + translation0.x;
-						y2_ = raw_vis.y + translation0.y;
+						imu02enu_.decompose(trans_body, rot_body, scale0);
+
+						x2_ = trans_body.x;
+						y2_ = trans_body.y;
 					} else {
 
 						// 1 R(camk2cam0) * R(imuk2camk) = R(imuk2cam0)
-						quaternion_c.multiply(quaternion_imu2cam).normalize();
+						rot_body.multiply(quaternion_imu2cam).normalize();
 		
-						cam2gps0.compose(raw_vis, quaternion_c, scale0);
+						cam2gps0.compose(trans_body, rot_body, scale0);
 		
 						// 2 R(imu02enu) * R(cam02imu0) * R(imuk2cam0) = R(imuk2enu)
 
-						var imu02enu_ = imu02enu.clone();
-		
 						imu02enu_.multiply(cam2imu);
 		
 						imu02enu_.multiply(cam2gps0);
 		
-						imu02enu_.decompose(raw_vis, quaternion_c, scale0);
+						imu02enu_.decompose(trans_body, rot_body, scale0);
 		
-						x2_ = raw_vis.x;
-						y2_ = raw_vis.y;
+						x2_ = trans_body.x;
+						y2_ = trans_body.y;
 					}
 
 					var utm = L.utm(x2_, y2_, 48, 'N', false);
@@ -404,25 +404,9 @@ paramTopicPose_Name.get(function(value) {
 
 				polyline2_.setLatLngs(latlngs);
 				markerPosition2.setLatLng(latlngs[path_length-1]);
-				console.log("index of last element ", path_length-1);
+				// console.log("index of last element ", path_length-1);
 				
 			}
-
-
-			// if(i2 % paramNbCyclesValue == 0)
-			// {
-
-			// 	utm = L.utm(x2_, y2_, 48, 'N', false);
-			// 	var ll = utm.latLng();
-			// 	if (ll){
-			// 		markerPosition2.setLatLng(ll);
-			// 		polyline2_.addLatLng(ll);
-			// 	}
-
-			// 	// console.log("Update position");
-
-			// }
-
 			i2 ++;
 		});
 	});
