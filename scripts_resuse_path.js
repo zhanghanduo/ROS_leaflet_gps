@@ -207,6 +207,7 @@ console.log("z_up?: ", z_up);
 var path_ = [];
 // var firstloc;
 var polyline_;
+var polyline1_;
 var polyline2_;
 var quaternion_;
 var translation_;
@@ -337,26 +338,30 @@ paramTopicPose_Name.get(function(value) {
 
 			if(loadedMap2 == false) 
 			{
-				polyline2_ = L.polyline(path_, {color: 'blue'}).addTo(map);
+				polyline2_ = L.polyline(path_, {color: 'green'}).addTo(map);
+
+				polyline1_ = L.polyline(path_, {color: 'black'}).addTo(map);
 
 				loadedMap2 = true;
 
 			} else if(i2 % paramNbCyclesValue == 0) {
 				// 0 Declaration of variables
 				var latlngs = [];
+				var latlngs_2 = [];
 				var messages = message2.poses;
 				var path_length = messages.length;
+				var last_ = 0;
 
 				for (var i = 0; i < path_length; i++) {
 					var scale0 = new THREE.Vector3 (1, 1, 1);
 					var rot_body = new THREE.Quaternion( messages[i].pose.orientation.x, 
-															messages[i].pose.orientation.y, 
-															messages[i].pose.orientation.z, 
-															messages[i].pose.orientation.w );
+														 messages[i].pose.orientation.y, 
+														 messages[i].pose.orientation.z, 
+														 messages[i].pose.orientation.w );
 
 					var trans_body = new THREE.Vector3( messages[i].pose.position.x, 
-													 messages[i].pose.position.y, 
-													 messages[i].pose.position.z);	
+													    messages[i].pose.position.y, 
+													    messages[i].pose.position.z);	
 					
 					var x2_, y2_;
 					var cam2gps0 = new THREE.Matrix4();
@@ -395,15 +400,30 @@ paramTopicPose_Name.get(function(value) {
 					var utm = L.utm(x2_, y2_, 48, 'N', false);
 					var ll = utm.latLng();
 
-					latlngs.push(ll);
+					if(essages[i].pose.position.z == 0.2){
+						latlngs_2.push(ll);
+						last_ = 1;
+					}
+					else{
+						latlngs.push(ll);
+						last_ = 0;
+					}
 
 				}
 
 				// markerPosition2.setLatLng(ll);
 				// polyline2_.addLatLng(ll);
 
-				polyline2_.setLatLngs(latlngs);
-				markerPosition2.setLatLng(latlngs[path_length-1]);
+				polyline1_.setLatLngs(latlngs);
+				polyline2_.setLatLngs(latlngs_2);
+
+				var len1 = latlngs.length;
+				var len2 = latlngs_2.length;
+				if(last_ == 0)
+					markerPosition2.setLatLng(latlngs[len1-1]);
+				else
+					markerPosition2.setLatLng(latlngs_2[len2-1]);
+
 				// console.log("index of last element ", path_length-1);
 				
 			}
