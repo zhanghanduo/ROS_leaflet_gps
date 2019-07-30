@@ -363,16 +363,8 @@ paramTopicPose_Name.get(function(value) {
 					var imu02enu_ = imu02enu.clone();
 
 					if(z_up == true){
-						cam2gps0.compose(trans_body, rot_body, scale0);
-		
-						// R(imu02enu) * R(imuk2imu0) = R(imuk2enu)
-						// imu02enu_.multiply(cam2imu);
-						imu02enu_.multiply(cam2gps0);
-		
-						imu02enu_.decompose(trans_body, rot_body, scale0);
-
-						x2_ = trans_body.x;
-						y2_ = trans_body.y;
+						x2_ = trans_body.x + translation0.x;
+						y2_ = trans_body.y + translation0.y;
 					} else {
 
 						// 1 R(camk2cam0) * R(imuk2camk) = R(imuk2cam0)
