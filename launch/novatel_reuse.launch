@@ -1,8 +1,8 @@
 <launch>
     <param name="/panel/gps_topic" value="/gps_pose" />
     <!-- <param name="/panel/pose_topic" value="/pose_graph_node/odometry_rect" /> -->
-    <param name="/panel/pose_topic" value="/pose_graph_node/pose_graph_path" />
-    <param name="/panel/nb_cycles" value="3" />
+    <param name="/panel/pose_topic" value="/pose_graph_path" />
+    <param name="/panel/nb_cycles" value="1" />
     <param name="z_up" value="true" />
     <include file="$(find rosbridge_server)/launch/rosbridge_websocket.launch" > 
         <arg name="port" value="9090"/>

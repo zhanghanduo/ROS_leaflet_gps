@@ -19,7 +19,7 @@
 // The name of the GPS publisher name by default
 var CONFIG_default_gps_topic_name = '/gps_pose'; // '/kitti/oxts/gps/fix';
 
-var CONFIG_default_pose_topic_name = '/loop_fusion_node/pose_graph_path';
+var CONFIG_default_pose_topic_name = '/pose_graph_node/pose_graph_path';
 
 // The number of cycles between every marker position reload
 var CONFIG_cycles_number = 10;
@@ -51,6 +51,9 @@ var carIcon = L.icon({
 });
 var markerPosition = L.marker([0,0]);
 var markerPosition2 = L.marker([0,0], {icon: carIcon});
+
+var group1 = L.featureGroup();
+var group2 = L.featureGroup();
 // ============================= FUNCTIONS
 
 var rotateVector = function(vec, ang)
@@ -97,7 +100,9 @@ function mapInit() {
 	var attrib = 'Map data © OpenStreetMap contributors'; 
 
 	//===> Map loading
-	map = L.map('map');
+	map = L.map('map', {
+		preferCanvas: true
+	});
 	var osm = L.tileLayer(tileUrl, {
 		minZoom: 11, 
 		maxZoom: 19,
@@ -278,6 +283,7 @@ paramTopicName.get(function(value) {
 				// firstloc = [x_, y_];
 				translation0 = translation_;
 				quaternion0 = quaternion_;
+
 				imu02enu.compose(translation0, quaternion0, scale);
 
 				path_.push(ll0);
@@ -289,7 +295,6 @@ paramTopicName.get(function(value) {
 
 			if(i1 % paramNbCyclesValue == 0)
 			{
-
 				utm0 = L.utm(x_, y_, 48, 'N', false);
 				ll0 = utm0.latLng();
 				if (ll0){
@@ -338,14 +343,21 @@ paramTopicPose_Name.get(function(value) {
 
 			if(loadedMap2 == false) 
 			{
-				polyline2_ = L.polyline(path_, {color: 'green'}).addTo(map);
+				// polyline2_ = L.polyline(path_, {color: 'green'}).addTo(map);
 
-				polyline1_ = L.polyline(path_, {color: 'black'}).addTo(map);
+				// polyline1_ = L.polyline(path_, {color: 'black'}).addTo(map);
+				map.addLayer(group1);
+				map.addLayer(group2);
 
 				loadedMap2 = true;
 
 			} else if(i2 % paramNbCyclesValue == 0) {
 				// 0 Declaration of variables
+
+				group1.clearLayers();
+				group2.clearLayers();
+				var init1_ = false;
+				var init2_ = false;
 				var latlngs = [];
 				var latlngs_2 = [];
 				var messages = message2.poses;
@@ -368,16 +380,14 @@ paramTopicPose_Name.get(function(value) {
 					var imu02enu_ = imu02enu.clone();
 
 					if(z_up == true){
-						cam2gps0.compose(trans_body, rot_body, scale0);
+						// cam2gps0.compose(trans_body, rot_body, scale0);
 		
-						// R(imu02enu) * R(imuk2imu0) = R(imuk2enu)
-						// imu02enu_.multiply(cam2imu);
-						imu02enu_.multiply(cam2gps0);
+						// imu02enu_.multiply(cam2gps0);
 		
-						imu02enu_.decompose(trans_body, rot_body, scale0);
+						// imu02enu_.decompose(trans_body, rot_body, scale0);
 
-						x2_ = trans_body.x;
-						y2_ = trans_body.y;
+						x2_ = trans_body.x + translation0.x;
+						y2_ = trans_body.y + translation0.y;
 					} else {
 
 						// 1 R(camk2cam0) * R(imuk2camk) = R(imuk2cam0)
@@ -400,22 +410,81 @@ paramTopicPose_Name.get(function(value) {
 					var utm = L.utm(x2_, y2_, 48, 'N', false);
 					var ll = utm.latLng();
 
-					if(essages[i].pose.position.z == 0.2){
+					if(messages[i].pose.position.z == 0.2)
+					{
 						latlngs_2.push(ll);
+
+						if(init1_ == false)
+						{
+							var poly_ = L.polyline(ll, {color: '#22ff00'}).addTo(group2);
+							init1_ = true;
+						}
+						else if(last_ == 1)
+						{
+							var polys = group2.getLayers();
+							var len_ = polys.length;
+							var poly_ = polys[len_ - 1];
+							poly_.addLatLng(ll);
+						}
+						else{
+							var polys1 = group1.getLayers();
+							var len_ = polys1.length;
+							var poly1_ = polys1[len_ - 1];
+							poly1_.addLatLng(ll);
+
+							var poly2_ = L.polyline(ll, {color: '#22ff00'}).addTo(group2);
+						}
+
+						// var circle1 = L.circle(ll,{radius: 0.5, color:'green',weight:.3, opacity:1,
+						// fillColor: '#22ff00',fillOpacity:1}).addTo(group2);
 						last_ = 1;
 					}
-					else{
+					else
+					{
 						latlngs.push(ll);
+
+						if(init2_ == false)
+						{
+							var poly_ = L.polyline(ll, {color: 'black'}).addTo(group1);
+							init2_ = true;
+						}
+						else if(last_ == 0)
+						{
+							var polys = group1.getLayers();
+							var len_ = polys.length;
+							var poly_ = polys[len_ - 1];
+							poly_.addLatLng(ll);
+						}
+						else{
+							var polys1 = group2.getLayers();
+							var len_ = polys1.length;
+							var poly1_ = polys1[len_ - 1];
+							// var poly_ = group2.getLayer(-1).addLatLng(ll);
+							poly1_.addLatLng(ll);
+
+							var poly2_ = L.polyline(ll, {color: 'black'}).addTo(group1);
+						}
+
+						// var circle1 = L.circle(ll,{radius: 0.6, color:'black',weight:.3, opacity:1,
+						// fillColor: '#000000',fillOpacity:1}).addTo(group1);
 						last_ = 0;
 					}
 
 				}
 
-				// markerPosition2.setLatLng(ll);
-				// polyline2_.addLatLng(ll);
+				// polyline1_.setLatLngs(latlngs);
+				// polyline2_.setLatLngs(latlngs_2);
 
-				polyline1_.setLatLngs(latlngs);
-				polyline2_.setLatLngs(latlngs_2);
+				// if(map.hasLayer(group1)){
+				// 	map.removeLayer(group1);
+				// }
+
+				// if(map.hasLayer(group2)){
+				// 	map.removeLayer(group2);
+				// }
+
+				// map.addLayer(group1);
+				// map.addLayer(group2);
 
 				var len1 = latlngs.length;
 				var len2 = latlngs_2.length;
