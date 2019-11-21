@@ -105,11 +105,11 @@ function mapInit() {
 	}); 
 	osm.addTo(map);
 
-
-	map.addControl(new L.Control.LinearMeasurement({
-		unitSystem: 'metric',
-		color: '#FF0080'
-	}));
+	L.control.scale ({maxWidth:240, metric:true, imperial:false, position: 'bottomleft'}).addTo (map);
+	let polylineMeasure = L.control.polylineMeasure ({
+							position:'topleft', unit:'metres', showBearings:false, 
+							clearMeasurementsOnStop: false, showClearControl: true})
+	polylineMeasure.addTo (map);
 
 	L.easyButton('glyphicon glyphicon-refresh', function(btn, map){
 		window.location.reload();
