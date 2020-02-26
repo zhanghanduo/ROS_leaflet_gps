@@ -1,7 +1,7 @@
 <launch>
     <!-- <param name="/panel/gps_topic" value="/kitti/oxts/gps/fix" /> -->
     <param name="/panel/gps_topic" value="/gps_pose" />
-    <param name="/panel/pose_topic" value="/sslam/robot/pose" />
+    <param name="/panel/pose_topic" value="/sslam_estimator_node/camera_pose" />
     <param name="/panel/nb_cycles" value="7" />
     <!-- <param name="z_up" value="true" /> -->
     <include file="$(find rosbridge_server)/launch/rosbridge_websocket.launch" > 

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>Stereo Visual SLAM</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" charset="UTF-8">
+		<!-- Leaflet -->
+		<link rel="stylesheet" href="https://unpkg.com/leaflet@1.6.0/dist/leaflet.css" />
+		<script src="https://unpkg.com/leaflet@1.6.0/dist/leaflet.js"></script>
+        <!-- <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.3/leaflet.css" />
+		<script src="https://cdn.onemap.sg/leaflet/onemap-leaflet.js"></script> -->
+
+		<!-- Measurement -->
+		<link rel="stylesheet" href="https://ppete2.github.io/Leaflet.PolylineMeasure/Leaflet.PolylineMeasure.css" />
+		<script src="https://ppete2.github.io/Leaflet.PolylineMeasure/Leaflet.PolylineMeasure.js"></script>
+
+		<!-- Easy Button -->
+		<link href="lib/easy-button/easy-button.css" rel="stylesheet">
+		<script src="lib/easy-button/easy-button.js"></script>
+
+		<!-- Roscore -->
+		<script type="text/javascript" src="lib/roslib/eventemitter2.min.js"></script>
+		<script type="text/javascript" src="lib/roslib/roslib.min.js"></script>
+	
+		<!-- Bootstrap & JQuery --> 
+		<link href="lib/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+		<script src="lib/jquery/jquery-2.2.0.min.js"></script>
+		
+		<!-- SweetAlert -->
+		<link href="lib/sweetalert/sweetalert.css" rel="stylesheet">
+		<script src="lib/sweetalert/sweetalert.min.js"></script>
+
+	</head>
+
+	<style>
+		body {
+		padding: 15px;
+		}
+
+		h1 {
+		font-weight: 300;
+		font-size: 2em;
+		margin-top: -.75em;
+		padding: 0;
+		color: #777;
+		text-align: center;
+		font-family: 'Open Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+		-webkit-font-smoothing: antialiased;
+		-moz-osx-font-smoothing: grayscale;
+		text-rendering: optimizeLegibility;
+		}
+
+		#map {
+		height: 80vh;
+		}
+
+		.cost_label {
+		font-weight: bold;
+		}
+
+		.cost_value {
+		text-align: left;
+		}
+</style>
+
+	<body>
+		<h1>Red Path: GPS output | Blue Path: SLAM Estimated Trajectory</h1>
+		<div id='map' style='height:800px;'></div>
+	<!-- Scripts --> 
+	<script src="lib/bootstrap/js/bootstrap.min.js"></script> 
+	<script src="lib/leaflet_utm/UTM.js"></script>
+	<script src="lib/three.min.js"></script>
+
+	<script src="scripts_pose.js"></script>
+	<!-- <script src="script_fix.js"></script> -->
+	</body>
+
+
+</html>
+
