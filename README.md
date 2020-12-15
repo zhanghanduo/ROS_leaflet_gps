@@ -77,6 +77,14 @@ In the lab, we're working with two different GPS, which are not publishing on th
 
 You can set those in a ROS launch file, or set it using `rosparam set`, then refreshing the page in the browser by clicking on the refresh button.
 
+#### Warning!
+
+**Updates on 2020-12-15**
+
+You need first to know your city and search the corresponding UTM coordindates in https://www.gps-latitude-longitude.com/. You can find the keyword "zone" like below:
+![](assets/2020-12-15-14-41-30.png)
+
+Just replace the '48' and 'N' in `script_reuse_path.js` utm functions with the zone (`56`) and band (`H`).
 
 #### Example 1
 
